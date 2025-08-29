@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>HTMLマニュアル｜右サイド自動TOC</title>
+<style>
+  :root { --toc-w: 280px; --border:#e5e7eb; --active:#111827; --muted:#6b7280; --link:#2563eb; }
+  body { margin:0; font:16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { position: sticky; top:0; background:#fff; border-bottom:1px solid var(--border); padding:.75rem 1rem; z-index:10;}
+  .container { display:grid; grid-template-columns: minmax(0,1fr); gap:1rem; }
+  @media (min-width: 1100px) { .container { grid-template-columns: minmax(0,1fr) var(--toc-w); } }
+  main { padding: 1rem 1rem 4rem; }
+  aside { position: sticky; top: 64px; height: calc(100dvh - 64px); overflow:auto; border-left:1px solid var(--border); padding: .75rem; background:#fff; }
+  nav#auto-toc h2 { font-size:.95rem; color:var(--muted); margin:.25rem 0 .5rem; }
+  nav#auto-toc ol, nav#auto-toc ul { list-style:none; margin:0; padding:0; }
+  nav#auto-toc a { display:block; padding:.25rem .5rem; text-decoration:none; color:#374151; border-radius:.375rem; }
+  nav#auto-toc a:hover { background:#f3f4f6; }
+  nav#auto-toc li.is-active > a { color: var(--active); font-weight: 700; }
+  nav#auto-toc ul { margin-left: .75rem; border-left: 2px solid #f3f4f6; padding-left: .5rem; }
+  main h2, main h3 { scroll-margin-top: 80px; }
+  .kicker { color:#6b7280; font-size:.9rem; }
+</style>
+</head>
+<body>
+<header>
+  <strong>製品マニュアル（例）</strong>
+</header>
+
+<div class="container">
+  <main id="content">
+    <p class="kicker">右側の目次は本文の見出しから自動生成され、スクロールに追随してハイライトされます。</p>
+
+    <h2>1. 概要</h2>
+    <p>……本文……</p>
+
+    <h2>2. 安全情報</h2>
+    <h3>2.1 ラベルの意味</h3>
+    <p>……本文……</p>
+    <h3>2.2 作業環境</h3>
+    <p>……本文……</p>
+
+    <h2>3. 設置</h2>
+    <h3>3.1 同梱物確認</h3>
+    <p>……本文……</p>
+    <h3>3.2 配置と固定</h3>
+    <p>……本文……</p>
+
+    <h2>4. 保守点検</h2>
+    <h3>4.1 定期点検</h3>
+    <p>……本文……</p>
+    <h3>4.2 交換部品</h3>
+    <p>……本文……</p>
+
+    <h2>5. 参考資料</h2>
+    <p>……本文……</p>
+  </main>
+
+  <aside>
+    <nav id="auto-toc" aria-label="目次">
+      <h2>目次</h2>
+      <!-- ここにJSで生成 -->
+    </nav>
+  </aside>
+</div>
+
+<script>
+  // --- 見出しからTOCを自動生成（h2/h3対応） ---
+  const content = document.querySelector('#content');
+  const headings = [...content.querySelectorAll('h2, h3')];
+  const toc = document.querySelector('#auto-toc');
+
+  // スラッグ生成（IDが無ければ付与）
+  const slugify = s => s.toLowerCase()
+    .replace(/[^\w\-ぁ-んァ-ン一-龥]/g, ' ')
+    .trim().replace(/\s+/g, '-');
+
+  const ol = document.createElement('ol');
+  let currentLi = null;
+  let currentUl = null;
+
+  headings.forEach(h => {
+    if (!h.id) h.id = slugify(h.textContent);
+    h.classList.add('anchor-target');
+
+    if (h.tagName === 'H2') {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = `#${h.id}`;
+      a.textContent = h.textContent;
+      li.appendChild(a);
+      ol.appendChild(li);
+      currentLi = li;
+      currentUl = null;
+    } else if (h.tagName === 'H3' && currentLi) {
+      if (!currentUl) {
+        currentUl = document.createElement('ul');
+        currentLi.appendChild(currentUl);
+      }
+      const sli = document.createElement('li');
+      const sa = document.createElement('a');
+      sa.href = `#${h.id}`;
+      sa.textContent = h.textContent;
+      sli.appendChild(sa);
+      currentUl.appendChild(sli);
+    }
+  });
+
+  toc.appendChild(ol);
+
+  // --- スクロール連動（IntersectionObserver） ---
+  const mapIdToLi = new Map();
+  toc.querySelectorAll('a').forEach(a => {
+    const id = a.getAttribute('href').slice(1);
+    mapIdToLi.set(id, a.parentElement);
+  });
+
+  let activeId = null;
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        activeId = entry.target.id;
+        toc.querySelectorAll('li').forEach(li => li.classList.remove('is-active'));
+        const li = mapIdToLi.get(activeId);
+        if (li) {
+          li.classList.add('is-active');
+          // 親のH2も強調（H3のとき）
+          const parentLi = li.closest('ul')?.parentElement;
+          parentLi?.classList.add('is-active');
+        }
+      }
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0.01 });
+
+  headings.forEach(h => io.observe(h));
+</script>
+</body>
+</html>
